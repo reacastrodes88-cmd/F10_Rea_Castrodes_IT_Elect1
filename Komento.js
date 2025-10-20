@@ -14,8 +14,8 @@ import {
   ScrollView,
 } from "react-native";
 
-const USER_IMAGE = require("./assets/me.jpeg"); // your profile picture
-const POST_IMAGE = require("./assets/post.jpg"); // your main post image (add this file)
+const USER_IMAGE = require("./assets/me.jpeg");
+const POST_IMAGE = require("./assets/post.jpg");
 
 export default function Komento() {
   const [comment, setComment] = useState("");
@@ -39,17 +39,15 @@ export default function Komento() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ✅ Added KeyboardAvoidingView & ScrollView wrapper */}
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, paddingBottom: Platform.OS === "android" ? 30 : 20 }} // ⬆️ added padding to lift up everything
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "android" ? 90 : 100}
+        keyboardVerticalOffset={Platform.OS === "android" ? 100 : 120} // ⬆️ higher offset to raise the input
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* 🧩 Post Header */}
           <View style={styles.postHeader}>
             <Image source={USER_IMAGE} style={styles.profilePicLarge} />
             <View style={styles.postInfo}>
@@ -59,10 +57,8 @@ export default function Komento() {
             </View>
           </View>
 
-          {/* 🖼️ Post Image */}
           <Image source={POST_IMAGE} style={styles.postImage} resizeMode="cover" />
 
-          {/* 💬 Comment List */}
           <FlatList
             data={comments}
             keyExtractor={(item) => item.id}
@@ -70,13 +66,13 @@ export default function Komento() {
             ListEmptyComponent={
               <Text style={styles.emptyText}>No comments yet. Be the first!</Text>
             }
-            scrollEnabled={false} // ✅ disable inner scroll since we already use ScrollView
-            contentContainerStyle={{ paddingBottom: 100 }}
+            scrollEnabled={false}
+            contentContainerStyle={{ paddingBottom: 140 }} // ⬆️ more space above bottom input
           />
         </ScrollView>
 
-        {/* ✏️ Comment Input */}
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { marginBottom: Platform.OS === "android" ? 25 : 15 }]}>
+          {/* ⬆️ lifted up the comment box */}
           <Image source={USER_IMAGE} style={styles.profilePicSmall} />
           <View style={styles.inputContainer}>
             <TextInput
