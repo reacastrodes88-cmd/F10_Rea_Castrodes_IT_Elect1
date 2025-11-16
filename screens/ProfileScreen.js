@@ -14,6 +14,7 @@ import {
   Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { useSQLiteContext } from "expo-sqlite";
 
 export default function ProfileScreen({ navigation, route = {} }) {
@@ -39,6 +40,8 @@ export default function ProfileScreen({ navigation, route = {} }) {
       );
       if (user?.profile_picture) {
         setProfilePic(user.profile_picture);
+        // Update currentUser object so other screens can access it
+        currentUser.profile_picture = user.profile_picture;
       }
     } catch (err) {
       console.log("Error loading user data:", err);
@@ -54,6 +57,19 @@ export default function ProfileScreen({ navigation, route = {} }) {
       setSelfies(posts);
     } catch (err) {
       console.log("Error loading selfies:", err);
+    }
+  };
+
+  // Convert image to Base64
+  const convertToBase64 = async (uri) => {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return `data:image/jpeg;base64,${base64}`;
+    } catch (err) {
+      console.log("Error converting to base64:", err);
+      return null;
     }
   };
 
@@ -77,34 +93,42 @@ export default function ProfileScreen({ navigation, route = {} }) {
     return true;
   };
 
-  // Upload profile picture from gallery - SAVES TO DATABASE
+  // Upload profile picture from gallery - SAVES AS BASE64
   const pickProfilePicture = async () => {
     const hasPermission = await requestMediaPermission();
     if (!hasPermission) return;
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5,
+        quality: 0.2,
       });
 
       if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
+        const uri = result.assets[0].uri;
         
-        // SAVE TO DATABASE
+        // Convert to Base64
+        const base64Image = await convertToBase64(uri);
+        
+        if (!base64Image) {
+          Alert.alert("Error", "Failed to process image");
+          return;
+        }
+        
+        // SAVE BASE64 TO DATABASE
         await db.runAsync(
           "UPDATE users SET profile_picture = ? WHERE id = ?",
-          [imageUri, currentUser.id]
+          [base64Image, currentUser.id]
         );
         
-        setProfilePic(imageUri);
+        setProfilePic(base64Image);
         
         // Update currentUser object
-        currentUser.profile_picture = imageUri;
+        currentUser.profile_picture = base64Image;
         
-        Alert.alert("Success", "Profile picture saved! You can now see it in Messenger and Comments.");
+        Alert.alert("Success", "Profile picture saved permanently! You can now see it in Messenger and Comments.");
       }
     } catch (err) {
       console.log("Error picking profile picture:", err);
@@ -112,7 +136,7 @@ export default function ProfileScreen({ navigation, route = {} }) {
     }
   };
 
-  // Take selfie - POSTS TO COMMENT SECTION
+  // Take selfie - POSTS TO COMMENT SECTION WITH BASE64 IMAGE
   const takeSelfie = async () => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) return;
@@ -121,28 +145,36 @@ export default function ProfileScreen({ navigation, route = {} }) {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.5,
+        quality: 0.2,
       });
 
       if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
+        const uri = result.assets[0].uri;
+        
+        // Convert to Base64
+        const base64Image = await convertToBase64(uri);
+        
+        if (!base64Image) {
+          Alert.alert("Error", "Failed to process image");
+          return;
+        }
         
         // Save to selfie_posts table
         await db.runAsync(
           "INSERT INTO selfie_posts (user_id, username, image_uri, caption) VALUES (?, ?, ?, ?)",
-          [currentUser.id, currentUser.username, imageUri, caption.trim() || null]
+          [currentUser.id, currentUser.username, base64Image, caption.trim() || null]
         );
         
-        // POST TO COMMENT SECTION
+        // POST TO COMMENT SECTION WITH IMAGE
         const commentText = caption.trim() || "Posted a selfie 📸";
         await db.runAsync(
-          "INSERT INTO comments (user_id, username, comment) VALUES (?, ?, ?)",
-          [currentUser.id, currentUser.username, commentText]
+          "INSERT INTO comments (user_id, username, comment, image_uri) VALUES (?, ?, ?, ?)",
+          [currentUser.id, currentUser.username, commentText, base64Image]
         );
         
         setCaption("");
         loadSelfies();
-        Alert.alert("Success", "Selfie posted to Comment Section!");
+        Alert.alert("Success", "Selfie posted to Comment Section! Everyone can see it now!");
       }
     } catch (err) {
       console.log("Error taking selfie:", err);
@@ -150,38 +182,46 @@ export default function ProfileScreen({ navigation, route = {} }) {
     }
   };
 
-  // Pick selfie from gallery - POSTS TO COMMENT SECTION
+  // Pick selfie from gallery - POSTS TO COMMENT SECTION WITH BASE64 IMAGE
   const pickSelfie = async () => {
     const hasPermission = await requestMediaPermission();
     if (!hasPermission) return;
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.5,
+        quality: 0.2,
       });
 
       if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
+        const uri = result.assets[0].uri;
+        
+        // Convert to Base64
+        const base64Image = await convertToBase64(uri);
+        
+        if (!base64Image) {
+          Alert.alert("Error", "Failed to process image");
+          return;
+        }
         
         // Save to selfie_posts table
         await db.runAsync(
           "INSERT INTO selfie_posts (user_id, username, image_uri, caption) VALUES (?, ?, ?, ?)",
-          [currentUser.id, currentUser.username, imageUri, caption.trim() || null]
+          [currentUser.id, currentUser.username, base64Image, caption.trim() || null]
         );
         
-        // POST TO COMMENT SECTION
+        // POST TO COMMENT SECTION WITH IMAGE
         const commentText = caption.trim() || "Posted a photo 📷";
         await db.runAsync(
-          "INSERT INTO comments (user_id, username, comment) VALUES (?, ?, ?)",
-          [currentUser.id, currentUser.username, commentText]
+          "INSERT INTO comments (user_id, username, comment, image_uri) VALUES (?, ?, ?, ?)",
+          [currentUser.id, currentUser.username, commentText, base64Image]
         );
         
         setCaption("");
         loadSelfies();
-        Alert.alert("Success", "Photo posted to Comment Section!");
+        Alert.alert("Success", "Photo posted to Comment Section! Everyone can see it now!");
       }
     } catch (err) {
       console.log("Error picking selfie:", err);
@@ -235,7 +275,9 @@ export default function ProfileScreen({ navigation, route = {} }) {
           </TouchableOpacity>
           <Text style={styles.username}>{currentUser.username}</Text>
           <TouchableOpacity style={styles.uploadButton} onPress={pickProfilePicture}>
-            <Text style={styles.uploadButtonText}>Upload Profile Picture</Text>
+            <Text style={styles.uploadButtonText}>
+              {profilePic ? "Change Profile Picture" : "Upload Profile Picture"}
+            </Text>
           </TouchableOpacity>
           <Text style={styles.infoText}>This will appear in Messenger & Comments</Text>
         </View>
@@ -258,7 +300,7 @@ export default function ProfileScreen({ navigation, route = {} }) {
               <Text style={styles.buttonText}>🖼️ From Gallery</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.infoText}>Selfies will be posted to Comment Section</Text>
+          <Text style={styles.infoText}>Selfies will be posted to Comment Section for everyone to see</Text>
         </View>
 
         {/* Selfie Posts */}

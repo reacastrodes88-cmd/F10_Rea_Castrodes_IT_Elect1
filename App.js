@@ -21,17 +21,6 @@ export default function App() {
         try {
           console.log("🗄 Initializing database...");
 
-          // First, check if users table exists and add profile_picture column if missing
-          try {
-            await db.execAsync(`
-              ALTER TABLE users ADD COLUMN profile_picture TEXT;
-            `);
-            console.log("✅ Added profile_picture column to existing users table");
-          } catch (err) {
-            // Column might already exist or table doesn't exist yet
-            console.log("ℹ️ profile_picture column might already exist");
-          }
-
           // Create users table if not exists (with profile_picture)
           await db.execAsync(`
             CREATE TABLE IF NOT EXISTS users (
@@ -43,12 +32,17 @@ export default function App() {
             );
           `);
 
-          // Drop and recreate messages table to ensure correct schema
-          await db.execAsync(`
-            DROP TABLE IF EXISTS messages;
-          `);
+          // Try to add profile_picture column if it doesn't exist
+          try {
+            await db.execAsync(`
+              ALTER TABLE users ADD COLUMN profile_picture TEXT;
+            `);
+            console.log("✅ Added profile_picture column");
+          } catch (err) {
+            console.log("ℹ️ profile_picture column already exists");
+          }
 
-          // Create messages table with isRead column
+          // Create messages table with isRead column (IF NOT EXISTS - no drop!)
           await db.execAsync(`
             CREATE TABLE IF NOT EXISTS messages (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,24 +56,44 @@ export default function App() {
             );
           `);
 
-          // Drop and recreate comments table
-          await db.execAsync(`
-            DROP TABLE IF EXISTS comments;
-          `);
+          // Check if messages table has isRead column, add if missing
+          try {
+            const messageColumns = await db.getAllAsync("PRAGMA table_info(messages);");
+            const hasIsRead = messageColumns.some(col => col.name === 'isRead');
+            if (!hasIsRead) {
+              await db.execAsync(`ALTER TABLE messages ADD COLUMN isRead INTEGER DEFAULT 0;`);
+              console.log("✅ Added isRead column to messages");
+            }
+          } catch (err) {
+            console.log("ℹ️ Messages table check:", err.message);
+          }
 
-          // Create comments table
+          // Create comments table WITH IMAGE SUPPORT (IF NOT EXISTS - no drop!)
           await db.execAsync(`
             CREATE TABLE IF NOT EXISTS comments (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               user_id INTEGER NOT NULL,
               username TEXT NOT NULL,
               comment TEXT NOT NULL,
+              image_uri TEXT,
               timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
               FOREIGN KEY (user_id) REFERENCES users(id)
             );
           `);
 
-          // Create selfie posts table for Activity 2
+          // Check if comments table has image_uri column, add if missing
+          try {
+            const commentColumns = await db.getAllAsync("PRAGMA table_info(comments);");
+            const hasImageUri = commentColumns.some(col => col.name === 'image_uri');
+            if (!hasImageUri) {
+              await db.execAsync(`ALTER TABLE comments ADD COLUMN image_uri TEXT;`);
+              console.log("✅ Added image_uri column to comments");
+            }
+          } catch (err) {
+            console.log("ℹ️ Comments table check:", err.message);
+          }
+
+          // Create selfie posts table
           await db.execAsync(`
             CREATE TABLE IF NOT EXISTS selfie_posts (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,12 +111,18 @@ export default function App() {
           );
           console.log("✅ Tables in DB:", tables);
 
-          // Verify users table structure
+          // Verify table structures
           const userColumns = await db.getAllAsync("PRAGMA table_info(users);");
           console.log("✅ Users table columns:", userColumns);
 
+          const messageColumns = await db.getAllAsync("PRAGMA table_info(messages);");
+          console.log("✅ Messages table columns:", messageColumns);
+
+          const commentColumns = await db.getAllAsync("PRAGMA table_info(comments);");
+          console.log("✅ Comments table columns:", commentColumns);
+
           await db.execAsync("PRAGMA journal_mode=WAL;");
-          console.log("✅ Database initialization complete!");
+          console.log("✅ Database initialization complete - DATA WILL PERSIST!");
         } catch (error) {
           console.error("❌ Database init failed:", error);
         }

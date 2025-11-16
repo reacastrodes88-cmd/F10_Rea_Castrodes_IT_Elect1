@@ -137,9 +137,9 @@ export default function Komento({ route = {}, navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Messenger</Text>
+          <Text style={styles.headerTitle}>Comment</Text>
           <TouchableOpacity onPress={() => navigation.navigate('ChatScreen', { currentUser })}>
-            <Text style={styles.commentText}>Comment</Text>
+            
           </TouchableOpacity>
         </View>
       </View>
@@ -187,7 +187,7 @@ export default function Komento({ route = {}, navigation }) {
             </View>
           )}
 
-          {/* Comments Section - EVERYONE CAN COMMENT */}
+          {/* Comments Section - EVERYONE CAN COMMENT AND SEE PHOTOS */}
           <View style={styles.commentsSection}>
             {comments.length === 0 ? (
               <Text style={styles.noCommentsText}>
@@ -197,9 +197,19 @@ export default function Komento({ route = {}, navigation }) {
               comments.map((item) => (
                 <View key={item.id} style={styles.commentItem}>
                   {renderProfilePicture(item.user_id)}
-                  <View style={styles.commentBubble}>
-                    <Text style={styles.commentUsername}>{item.username}</Text>
-                    <Text style={styles.commentTextContent}>{item.comment}</Text>
+                  <View style={styles.commentContent}>
+                    <View style={styles.commentBubble}>
+                      <Text style={styles.commentUsername}>{item.username}</Text>
+                      <Text style={styles.commentTextContent}>{item.comment}</Text>
+                    </View>
+                    {/* SHOW IMAGE IF AVAILABLE */}
+                    {item.image_uri && (
+                      <Image
+                        source={{ uri: item.image_uri }}
+                        style={styles.commentImage}
+                        resizeMode="cover"
+                      />
+                    )}
                   </View>
                 </View>
               ))
@@ -358,6 +368,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 8,
   },
+  commentContent: {
+    flex: 1,
+  },
   commentBubble: {
     backgroundColor: '#F0F2F5',
     borderRadius: 18,
@@ -375,6 +388,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#050505',
   },
+  commentImage: {
+    width: '100%',
+    height: 300,
+    borderRadius: 12,
+    marginTop: 8,
+    backgroundColor: '#F0F2F5',
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -383,7 +403,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E4E6EB',
     paddingHorizontal: 12,
     paddingVertical: 12,
-    paddingBottom: Platform.OS === 'android' ? 80 : 40, // LIFTED UP!
+    paddingBottom: Platform.OS === 'android' ? 80 : 40,
   },
   inputProfilePic: {
     width: 32,
